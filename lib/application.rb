@@ -8,8 +8,8 @@ module REXML
   end
 end
 
-require 'vendor/xml-simple-1.0.12/lib/xmlsimple'
-require 'vendor/amazon-ec2-0.3.8/lib/EC2'
+require File.join(File.dirname(__FILE__), '..', 'vendor', 'xml-simple-1.0.12', 'lib', 'xmlsimple')
+require File.join(File.dirname(__FILE__), '..', 'vendor', 'amazon-ec2-0.3.8', 'lib', 'EC2')
 
 class SilverLining
   include HotCocoa
