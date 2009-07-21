@@ -21,7 +21,9 @@ class SilverLining
       app.delegate = self
       @window = window(:frame => [@prefs[:position], @prefs[:size]].flatten, :title => "Silver Lining") do |win|
         win.will_close { exit }
-        
+        win.did_move { @prefs[:position] = [win.frame.origin.x, win.frame.origin.y] }
+        win.did_resize { @prefs[:size] = [win.frame.size.width, win.frame.size.height] }
+
         win << @search = search_field(:frame => [0, 0, 250, 30],
                                       :layout => {:align => :right, :start => false}) do |search|
           search.on_action { |sender| filter_instances }
