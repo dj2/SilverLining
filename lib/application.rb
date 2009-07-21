@@ -196,23 +196,6 @@ class SilverLining
   def ec2
     @ec2 ||= EC2::Base.new(:access_key_id => @prefs[:key], :secret_access_key => @prefs[:secret])    
   end
-
-=begin
-  def toolbar(toolbar, itemForItemIdentifier:id, willBeInsertedIntoToolbar:tb)
-    NSLog("HERE")
-    toolbar.item_for_identifier(id)
-  end
-  
-  def toolbarAllowedItemIdentifiers(toolbar)
-        NSLog("HERE2")
-    toolbar.allowed_items
-  end
-  
-  def toolbarDefaultItemIdentifiers(toolbar)
-        NSLog("HERE3")
-    toolbar.default_items
-  end
-=end
 end
 
 SilverLining.new.start
