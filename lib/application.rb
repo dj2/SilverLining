@@ -165,8 +165,8 @@ class SilverLining
 
     query = ".*#{filter}.*"
     @ec2_data.each do |instance|
-      if instance[:id] =~ /#{query}/ || instance[:type_array].join(" ") =~ /#{query}/ ||
-          instance[:dns_private] =~ /#{query}/ || instance[:dns_public] =~ /#{query}/
+      if instance[:id] =~ /#{query}/i || instance[:type_array].join(" ") =~ /#{query}/i ||
+          instance[:dns_private] =~ /#{query}/i || instance[:dns_public] =~ /#{query}/i
         data << instance
       end
     end
