@@ -36,7 +36,7 @@ class SilverLining
                                      :sort_descriptors => sd,
                                      :columns => [
                                           column(:id => :id, :title => 'id',
-                                                 :sort_descriptor_prototype => sd[0]),
+                                                        :sort_descriptor_prototype => sd[0]),
                                           column(:id => :type, :title => 'type'       ,
                                                         :sort_descriptor_prototype => sd[1]),
                                           column(:id => :dns_private, :title => 'private name',
@@ -50,13 +50,7 @@ class SilverLining
                                           column(:id => :zone, :title => 'zone',
                                                         :sort_descriptor_prototype => sd[6])]) do |table|
 
-            object = Object.new 
-            object.instance_variable_set("@behavior", Proc.new {launch_terminal})
-            def object.perform_action(sender) 
-           	  @behavior.call(sender) 
-           	end 
-           	table.setTarget(object) 
-           	table.setDoubleAction("perform_action:")
+            table.on_double_action { launch_terminal }
           end
         end
       end
