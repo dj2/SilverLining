@@ -20,14 +20,27 @@ class SilverLining
     application(:name => "Silverlining") do |app|
       app.delegate = self
       @window = window(:frame => [@prefs[:position], @prefs[:size]].flatten, :title => "Silver Lining") do |win|
+        win.contentView.margin = 5
+
         win.will_close { exit }
         win.did_move { @prefs[:position] = [win.frame.origin.x, win.frame.origin.y] }
         win.did_resize { @prefs[:size] = [win.frame.size.width, win.frame.size.height] }
 
-        win << @search = search_field(:frame => [0, 0, 250, 30],
-                                      :layout => {:align => :right, :start => false}) do |search|
-          search.on_action { |sender| filter_instances }
+        reload_item = toolbar_item(:label => "Reload",
+                                   :image => image(:named => "reload")).on_action { reload_instances }
+
+        search_item = toolbar_item(:identifier => "Search") do |si|
+          search = search_field(:frame => [0, 0, 250, 30],
+                                :layout => {:align => :right, :start => false})
+          search.on_action { |sender| filter_instances(search) }
+
+          si.view = search
         end
+
+        @toolbar = toolbar(:default => [reload_item, :flexible_space, search_item]) do |tb|
+          win.toolbar = tb
+        end
+
 
         win << scroll_view(:layout => {:expand => [:width, :height]}) do |scroll|
           sd = [sort_descriptor(:key => :id),
@@ -156,8 +169,13 @@ class SilverLining
     @table.reload
   end
 
-  def filter_instances
-    filter = @search.stringValue.dup
+  def reload_instances
+    load_ec2_data
+    load_instances
+  end
+
+  def filter_instances(search)
+    filter = search.stringValue.dup
     filter = filter.chomp.gsub(/^\s+/, '').gsub(/\s+$/, '')
     filter.gsub!(/\./, '-') if filter =~ /^[0-9\.]+$/
 
@@ -178,6 +196,23 @@ class SilverLining
   def ec2
     @ec2 ||= EC2::Base.new(:access_key_id => @prefs[:key], :secret_access_key => @prefs[:secret])    
   end
+
+=begin
+  def toolbar(toolbar, itemForItemIdentifier:id, willBeInsertedIntoToolbar:tb)
+    NSLog("HERE")
+    toolbar.item_for_identifier(id)
+  end
+  
+  def toolbarAllowedItemIdentifiers(toolbar)
+        NSLog("HERE2")
+    toolbar.allowed_items
+  end
+  
+  def toolbarDefaultItemIdentifiers(toolbar)
+        NSLog("HERE3")
+    toolbar.default_items
+  end
+=end
 end
 
 SilverLining.new.start
