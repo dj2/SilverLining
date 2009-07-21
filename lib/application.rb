@@ -158,6 +158,7 @@ class SilverLining
 
   def filter_instances
     filter = @search.stringValue.dup
+    filter = filter.chomp.gsub(/^\s+/, '').gsub(/\s+$/, '')
     filter.gsub!(/\./, '-') if filter =~ /^[0-9\.]+$/
 
     data = @table.dataSource.data
