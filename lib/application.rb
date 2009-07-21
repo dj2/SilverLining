@@ -22,6 +22,11 @@ class SilverLining
       @window = window(:frame => [@prefs[:position], @prefs[:size]].flatten, :title => "Silver Lining") do |win|
         win.will_close { exit }
         
+        win << @search = search_field(:frame => [0, 0, 250, 30],
+                                      :layout => {:align => :right, :start => false}) do |search|
+          search.on_action { |sender| filter_instances }
+        end
+
         win << scroll_view(:layout => {:expand => [:width, :height]}) do |scroll|
           sd = [sort_descriptor(:key => :id),
                 sort_descriptor(:key => :type),
@@ -56,6 +61,7 @@ class SilverLining
       end
         
       if @prefs[:key] && @prefs[:secret]
+        load_ec2_data
         load_instances
       else
         show_credentials_sheet(@window)
@@ -101,6 +107,7 @@ class SilverLining
     sheet.orderOut(self)
     sheet.close
     
+    load_ec2_data
     load_instances
   end
 
@@ -109,39 +116,62 @@ class SilverLining
     `/usr/bin/osascript -e 'on run argv' -e 'tell app "System Events" to set termOn to (exists process "Terminal")' -e 'set cmd to "ssh -i " & item 1 of argv & " " & item 2 of argv' -e 'if (termOn) then' -e 'tell app "Terminal" to do script cmd' -e 'else' -e 'tell app "Terminal" to do script cmd in front window' -e 'end if' -e 'tell app "Terminal" to activate' -e 'end run' #{@prefs[:ssh_key]} #{@prefs[:user]}@#{@table.dataSource.data[@table.selectedRow][:dns_public]}`
   end
 
-  def load_instances
-    data = @table.dataSource.data
-    types = Hash.new(0)
+  def load_ec2_data
+    @ec2_data = []
+    @ec2_types = Hash.new(0)
     ec2.describe_instances['reservationSet']['item'].each do |group|
       group_name = []
       group['groupSet']['item'].each do |i|
         group_name << i['groupId']
-        types[i['groupId']] += 1
+        @ec2_types[i['groupId']] += 1
       end
 
       group['instancesSet']['item'].each do |instance|
-        data << {:id => instance['instanceId'],
-                 :type_array => group_name,
-                 :dns_private => instance['privateDnsName'],
-                 :dns_public => instance['dnsName'],
-                 :launch_time => Time.parse(instance['launchTime']).to_s,
-                 :size => instance['instanceType'],
-                 :zone => instance['placement']['availabilityZone']}
+        @ec2_data << {:id => instance['instanceId'],
+                     :type_array => group_name,
+                     :dns_private => instance['privateDnsName'],
+                     :dns_public => instance['dnsName'],
+                     :launch_time => Time.parse(instance['launchTime']).to_s,
+                     :size => instance['instanceType'],
+                     :zone => instance['placement']['availabilityZone']}
       end
     end
     
-    data.sort! do |a, b|
-      a[:type_array].sort! { |first, second| types[second] <=> types[first] }
-      b[:type_array].sort! { |first, second| types[second] <=> types[first] }
+    @ec2_data.sort! do |a, b|
+      a[:type_array].sort! { |first, second| @ec2_types[second] <=> @ec2_types[first] }
+      b[:type_array].sort! { |first, second| @ec2_types[second] <=> @ec2_types[first] }
       [a[:type_array], a[:launch_time]].flatten <=> [b[:type_array], b[:launch_time]].flatten
     end
     
     # do this at the end so we have the names sorted in order of usage
-    data.each { |d| d[:type] = d[:type_array].join(", ") }
+    @ec2_data.each { |d| d[:type] = d[:type_array].join(", ") }
+  end
+
+  def load_instances
+    data = @table.dataSource.data
+    data.clear
+    @ec2_data.each { |d| data << d }
+    @table.reload
+  end
+
+  def filter_instances
+    filter = @search.stringValue.dup
+    filter.gsub!(/\./, '-') if filter =~ /^[0-9\.]+$/
+
+    data = @table.dataSource.data
+    data.clear
+
+    query = ".*#{filter}.*"
+    @ec2_data.each do |instance|
+      if instance[:id] =~ /#{query}/ || instance[:type_array].join(" ") =~ /#{query}/ ||
+          instance[:dns_private] =~ /#{query}/ || instance[:dns_public] =~ /#{query}/
+        data << instance
+      end
+    end
 
     @table.reload
   end
-  
+
   def ec2
     @ec2 ||= EC2::Base.new(:access_key_id => @prefs[:key], :secret_access_key => @prefs[:secret])    
   end
