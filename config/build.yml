@@ -1,7 +1,7 @@
 name: Silverlining
 load: lib/application.rb
 version: "1.0"
-icon: resources/HotCocoa.icns
+icon: resources/Web.icns
 resources:
   - resources/**/*.*
   - vendor

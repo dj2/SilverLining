@@ -1,7 +1,6 @@
 - Need to patch MacRuby trunk with http://www.macruby.org/trac/attachment/ticket/215/fix_openssl_215.3.diff
   - 2 hunks will fail, this is fine.
 
-- Also need:
-   http://www.macruby.org/trac/attachment/ticket/275/mapper_method_dispatch.diff
-   http://www.macruby.org/trac/attachment/ticket/279/sort.diff
+
+The web icon is from http://mouserunner.com/Spheres_ColoCons1_Free_Icons.html and is available under CC Attribution-ShareAlike 2.5.
  
