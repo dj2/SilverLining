@@ -83,7 +83,8 @@ class SilverLining
     reload_item = toolbar_item(:label => "Reload",
                                :image => image(:named => "reload")).on_action { reload_instances }
 
-    prefs_item = toolbar_item(:label => "Preferences").on_action { show_credentials_sheet(@window) }
+    prefs_item = toolbar_item(:label => "Preferences"                           ,
+                              :image => image(:named => "tools")).on_action { show_credentials_sheet(@window) }
 
     search_item = toolbar_item(:identifier => "Search") do |si|
       search = search_field(:frame => [0, 0, 250, 30],
@@ -99,9 +100,9 @@ class SilverLining
   def show_credentials_sheet(window)
     f = window.frame
     
-    credentialsSheet = window(:frame => [f.origin.x + (f.origin.x / 2) + 100,
-                                         f.origin.y + f.size.height - 400,
-                                         400, 400]) do |win|
+    credentialsSheet = window(:frame => [f.origin.x + (f.origin.x / 2) + 300,
+                                         f.origin.y + f.size.height - 350,
+                                         400, 300]) do |win|
 
       win << label(:text => "Key", :layout => {:start => false})
       win << @key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:key])
@@ -115,8 +116,9 @@ class SilverLining
       win << label(:text => "SSH Key File", :layout => {:start => false})
       win << @ssh_key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:ssh_key])
       
-      win << button(:title => "save", :layout => {:start => false}) do |button|
-        button.on_action { endSheet(win) }
+      win << layout_view(:mode => :horizontal, :size => [400, 100], :layout => {:expand => :width}) do |view|
+        view << button(:title => "save", :layout => {:start => true}) { |button| button.on_action { endSheet(win, true) } }
+        view << button(:title => "cancel", :layout => {:start => true}) { |button| button.on_action { endSheet(win, false) } }
       end
     end
 
@@ -125,19 +127,21 @@ class SilverLining
                      contextInfo:nil)
   end
   
-  def endSheet(sheet)
-    old_key = @prefs[:key]
-    old_secret = @prefs[:secret]
+  def endSheet(sheet, save)
+    if save
+      old_key = @prefs[:key]
+      old_secret = @prefs[:secret]
 
-    @prefs[:key] = @key_field.stringValue
-    @prefs[:secret] = @secret_field.stringValue
-    @prefs[:user] = @user_field.stringValue
-    @prefs[:ssh_key] = @ssh_key_field.stringValue
+      @prefs[:key] = @key_field.stringValue
+      @prefs[:secret] = @secret_field.stringValue
+      @prefs[:user] = @user_field.stringValue
+      @prefs[:ssh_key] = @ssh_key_field.stringValue
+    end
 
     sheet.orderOut(self)
     sheet.close
 
-    if (old_key != @prefs[:key]) || (old_secret != @prefs[:secret])
+    if save && (old_key != @prefs[:key]) || (old_secret != @prefs[:secret])
       load_ec2_data
       load_instances
     end
