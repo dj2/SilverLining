@@ -1,5 +1,5 @@
+require 'rubygems'
 require 'hotcocoa'
-require 'lib/preferences'
 
 require 'rexml/xmltokens'
 module REXML
@@ -8,14 +8,23 @@ module REXML
   end
 end
 
-require File.join(File.dirname(__FILE__), '..', 'vendor', 'xml-simple-1.0.12', 'lib', 'xmlsimple')
-require File.join(File.dirname(__FILE__), '..', 'vendor', 'amazon-ec2-0.3.8', 'lib', 'EC2')
+base = File.join(File.dirname(__FILE__), '..', 'vendor')
+Dir.entries(base).each do |dir|
+   next if dir =~ /^\.\.?$/
+   $:<< "#{base}/#{dir}/lib"
+end
+
+require 'xmlsimple'
+require 'EC2'
 
 class SilverLining
   include HotCocoa
 
   def start
-    @prefs = Preferences.instance
+    @prefs = HotCocoa.user_defaults(:defaults => {
+          :size => [800, 600],
+          :position => [200, 200]
+        })
 
     application(:name => "Silverlining") do |app|
       app.delegate = self
@@ -26,21 +35,7 @@ class SilverLining
         win.did_move { @prefs[:position] = [win.frame.origin.x, win.frame.origin.y] }
         win.did_resize { @prefs[:size] = [win.frame.size.width, win.frame.size.height] }
 
-        reload_item = toolbar_item(:label => "Reload",
-                                   :image => image(:named => "reload")).on_action { reload_instances }
-
-        search_item = toolbar_item(:identifier => "Search") do |si|
-          search = search_field(:frame => [0, 0, 250, 30],
-                                :layout => {:align => :right, :start => false})
-          search.on_action { |sender| filter_instances(search) }
-
-          si.view = search
-        end
-
-        @toolbar = toolbar(:default => [reload_item, :flexible_space, search_item]) do |tb|
-          win.toolbar = tb
-        end
-
+        win.toolbar = setup_toolbar
 
         win << scroll_view(:layout => {:expand => [:width, :height]}) do |scroll|
           sd = [sort_descriptor(:key => :id),
@@ -83,7 +78,24 @@ class SilverLining
       end
     end
   end
-  
+
+  def setup_toolbar
+    reload_item = toolbar_item(:label => "Reload",
+                               :image => image(:named => "reload")).on_action { reload_instances }
+
+    prefs_item = toolbar_item(:label => "Preferences").on_action { show_credentials_sheet(@window) }
+
+    search_item = toolbar_item(:identifier => "Search") do |si|
+      search = search_field(:frame => [0, 0, 250, 30],
+                            :layout => {:align => :right, :start => false})
+      search.on_action { |sender| filter_instances(search) }
+
+      si.view = search
+    end
+
+    toolbar(:default => [reload_item, prefs_item, :flexible_space, search_item])
+  end
+
   def show_credentials_sheet(window)
     f = window.frame
     
@@ -92,16 +104,16 @@ class SilverLining
                                          400, 400]) do |win|
 
       win << label(:text => "Key", :layout => {:start => false})
-      win << @key_field = text_field(:layout => {:start => false, :expand => [:width]})
+      win << @key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:key])
 
       win << label(:text => "Secret", :layout => {:start => false})
-      win << @secret_field = text_field(:layout => {:start => false, :expand => [:width]})
+      win << @secret_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:secret])
 
       win << label(:text => "User", :layout => {:start => false})
-      win << @user_field = text_field(:layout => {:start => false, :expand => [:width]})
+      win << @user_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:user])
 
       win << label(:text => "SSH Key File", :layout => {:start => false})
-      win << @ssh_key_field = text_field(:layout => {:start => false, :expand => [:width]})
+      win << @ssh_key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:ssh_key])
       
       win << button(:title => "save", :layout => {:start => false}) do |button|
         button.on_action { endSheet(win) }
@@ -114,6 +126,9 @@ class SilverLining
   end
   
   def endSheet(sheet)
+    old_key = @prefs[:key]
+    old_secret = @prefs[:secret]
+
     @prefs[:key] = @key_field.stringValue
     @prefs[:secret] = @secret_field.stringValue
     @prefs[:user] = @user_field.stringValue
@@ -121,9 +136,11 @@ class SilverLining
 
     sheet.orderOut(self)
     sheet.close
-    
-    load_ec2_data
-    load_instances
+
+    if (old_key != @prefs[:key]) || (old_secret != @prefs[:secret])
+      load_ec2_data
+      load_instances
+    end
   end
 
   def launch_terminal
@@ -165,6 +182,7 @@ class SilverLining
   def load_instances
     data = @table.dataSource.data
     data.clear
+
     @ec2_data.each { |d| data << d }
     @table.reload
   end
@@ -198,4 +216,9 @@ class SilverLining
   end
 end
 
-SilverLining.new.start
+begin
+  SilverLining.new.start
+rescue Exception => e
+  NSLog "#{e.message}\n#{e.backtrace.join('\n')}"
+end
+
