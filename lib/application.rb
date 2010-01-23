@@ -1,13 +1,6 @@
 require 'rubygems'
 require 'hotcocoa'
 
-require 'rexml/xmltokens'
-module REXML
-  class Attribute
-    include ::REXML::XMLTokens
-  end
-end
-
 base = File.join(File.dirname(__FILE__), '..', 'vendor')
 Dir.entries(base).each do |dir|
    next if dir =~ /^\.\.?$/
@@ -52,7 +45,7 @@ class SilverLining
                                      :columns => [
                                           column(:id => :id, :title => 'id',
                                                         :sort_descriptor_prototype => sd[0]),
-                                          column(:id => :type, :title => 'type'       ,
+                                          column(:id => :type, :title => 'type',
                                                         :sort_descriptor_prototype => sd[1]),
                                           column(:id => :dns_private, :title => 'private name',
                                                         :sort_descriptor_prototype => sd[2]),
