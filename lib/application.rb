@@ -38,7 +38,7 @@ class SilverLining
                 sort_descriptor(:key => :launch_time),
                 sort_descriptor(:key => :size),
                 sort_descriptor(:key => :zone)]
-          scroll << @table = table_view(:data => [], :layout => {:expand => [:width, :height]},
+          scroll << @outline = outline_view(:data => [], :layout => {:expand => [:width, :height]},
                                      :uses_alternating_row_background_colors => true,
                                      :delegate => self,
                                      :sort_descriptors => sd,
@@ -56,9 +56,8 @@ class SilverLining
                                           column(:id => :size, :title => 'size',
                                                         :sort_descriptor_prototype => sd[5]),
                                           column(:id => :zone, :title => 'zone',
-                                                        :sort_descriptor_prototype => sd[6])]) do |table|
-
-            table.on_double_action { launch_terminal }
+                                                        :sort_descriptor_prototype => sd[6])]) do |outline|
+            outline.on_double_action { launch_terminal }
           end
         end
       end
@@ -140,7 +139,7 @@ class SilverLining
 
   def launch_terminal
     # launch command grabbed from elastic fox
-    `/usr/bin/osascript -e 'on run argv' -e 'tell app "System Events" to set termOn to (exists process "Terminal")' -e 'set cmd to "ssh -i " & item 1 of argv & " " & item 2 of argv' -e 'if (termOn) then' -e 'tell app "Terminal" to do script cmd' -e 'else' -e 'tell app "Terminal" to do script cmd in front window' -e 'end if' -e 'tell app "Terminal" to activate' -e 'end run' #{@prefs[:ssh_key]} #{@prefs[:user]}@#{@table.dataSource.data[@table.selectedRow][:dns_public]}`
+    `/usr/bin/osascript -e 'on run argv' -e 'tell app "System Events" to set termOn to (exists process "Terminal")' -e 'set cmd to "ssh -i " & item 1 of argv & " " & item 2 of argv' -e 'if (termOn) then' -e 'tell app "Terminal" to do script cmd' -e 'else' -e 'tell app "Terminal" to do script cmd in front window' -e 'end if' -e 'tell app "Terminal" to activate' -e 'end run' #{@prefs[:ssh_key]} #{@prefs[:user]}@#{@outline.dataSource.data[@outline.selectedRow][:dns_public]}`
   end
 
   def load_ec2_data
@@ -148,10 +147,10 @@ class SilverLining
     load_volumes
     load_snapshots
 
-    data = @table.dataSource.data
+    data = @outline.dataSource.data
     data.clear
     @instance_data.each { |d| data << d }
-    @table.reload
+    @outline.reload
   end
 
   def load_instances
@@ -175,7 +174,7 @@ class SilverLining
                 :size => instance['instanceType'],
                 :zone => instance['placement']['availabilityZone']}
 
-        data[:volumes] = []
+        data[:childRows] = []
 
         @instances[data[:id]] = data
         @instance_data << data
@@ -201,23 +200,28 @@ class SilverLining
               :size => volume['size'],
               :parent_snapshot => volume['snapshotId'],
               :zone => volume['zone'],
-              :created_at => Time.parse(volume['createTime']).to_s}
+              :launch_time => Time.parse(volume['createTime']).to_s}
 
       data[:attachments] = []
-      data[:snapshots] = []
+      data[:childRows] = []
 
       @volumes[data[:id]] = data
 
       if volume.has_key?('attachmentSet') && !volume['attachmentSet'].nil? && volume['attachmentSet'].has_key?('item')
         volume['attachmentSet']['item'].each do |attach|
-          attach_data = {:volume => data,
-                         :device => attach['device'],
+          attach_data = {:id => data[:id],
+                         :volume => data,
+                         :type => attach['device'],
                          :instance => attach['instanceId'],
-                         :status => attach['status'],
-                         :time => Time.parse(attach['attachTime']).to_s,
-                         :del_on_term => attach['deleteOnTermination']}
+                         :dns_private => attach['status'],
+                         :dns_public => data[:parent_snapshot],
+                         :size => "#{data[:size]}G",
+                         :launch_time => Time.parse(attach['attachTime']).to_s,
+                         :del_on_term => attach['deleteOnTermination'],
+                         :childRows => data[:childRows]}
 
-          @instances[attach_data[:instance]][:volumes] << attach_data
+          data[:attachments] << attach_data
+          @instances[attach_data[:instance]][:childRows] << attach_data
         end
       end
     end
@@ -229,12 +233,12 @@ class SilverLining
     ec2.describe_snapshots['snapshotSet']['item'].each do |snap|
       data = {:id => snap['snapshotId'],
               :volume => snap['volumeId'],
-              :status => snap['status'],
-              :start => Time.parse(snap['startTime']).to_s,
-              :progress => snap['progress']}
+              :type => snap['status'],
+              :launch_time => Time.parse(snap['startTime']).to_s,
+              :size => snap['progress']}
 
       @snapshots[data[:id]] = data
-      @volumes[data[:volume]][:snapshots] << data if @volumes.has_key?(data[:volume])
+      @volumes[snap['volumeId']][:childRows] << data if @volumes.has_key?(snap['volumeId'])
     end
   end
 
@@ -247,7 +251,7 @@ class SilverLining
     filter = filter.chomp.gsub(/^\s+/, '').gsub(/\s+$/, '')
     filter.gsub!(/\./, '-') if filter =~ /^[0-9\.]+$/
 
-    data = @table.dataSource.data
+    data = @outline.dataSource.data
     data.clear
 
     query = ".*#{filter}.*"
@@ -258,7 +262,7 @@ class SilverLining
       end
     end
 
-    @table.reload
+    @outline.reload
   end
 
   def ec2
