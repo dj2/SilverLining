@@ -65,7 +65,6 @@ class SilverLining
         
       if @prefs[:key] && @prefs[:secret]
         load_ec2_data
-        load_instances
       else
         show_credentials_sheet(@window)
       end
@@ -74,9 +73,9 @@ class SilverLining
 
   def setup_toolbar
     reload_item = toolbar_item(:label => "Reload",
-                               :image => image(:named => "reload")).on_action { reload_instances }
+                               :image => image(:named => "reload")).on_action { reload }
 
-    prefs_item = toolbar_item(:label => "Preferences"                           ,
+    prefs_item = toolbar_item(:label => "Preferences",
                               :image => image(:named => "tools")).on_action { show_credentials_sheet(@window) }
 
     search_item = toolbar_item(:identifier => "Search") do |si|
@@ -136,7 +135,6 @@ class SilverLining
 
     if save && (old_key != @prefs[:key]) || (old_secret != @prefs[:secret])
       load_ec2_data
-      load_instances
     end
   end
 
@@ -146,47 +144,102 @@ class SilverLining
   end
 
   def load_ec2_data
-    @ec2_data = []
-    @ec2_types = Hash.new(0)
+    load_instances
+    load_volumes
+    load_snapshots
+
+    data = @table.dataSource.data
+    data.clear
+    @instance_data.each { |d| data << d }
+    @table.reload
+  end
+
+  def load_instances
+    @instances = {}
+    @instance_data = []
+    instance_types = Hash.new(0)
+
     ec2.describe_instances['reservationSet']['item'].each do |group|
       group_name = []
       group['groupSet']['item'].each do |i|
         group_name << i['groupId']
-        @ec2_types[i['groupId']] += 1
+        instance_types[i['groupId']] += 1
       end
 
       group['instancesSet']['item'].each do |instance|
-        @ec2_data << {:id => instance['instanceId'],
-                     :type_array => group_name,
-                     :dns_private => instance['privateDnsName'],
-                     :dns_public => instance['dnsName'],
-                     :launch_time => Time.parse(instance['launchTime']).to_s,
-                     :size => instance['instanceType'],
-                     :zone => instance['placement']['availabilityZone']}
+        data = {:id => instance['instanceId'],
+                :type_array => group_name,
+                :dns_private => instance['privateDnsName'],
+                :dns_public => instance['dnsName'],
+                :launch_time => Time.parse(instance['launchTime']).to_s,
+                :size => instance['instanceType'],
+                :zone => instance['placement']['availabilityZone']}
+
+        data[:volumes] = []
+
+        @instances[data[:id]] = data
+        @instance_data << data
       end
     end
     
-    @ec2_data.sort! do |a, b|
-      a[:type_array].sort! { |first, second| @ec2_types[second] <=> @ec2_types[first] }
-      b[:type_array].sort! { |first, second| @ec2_types[second] <=> @ec2_types[first] }
+    @instance_data.sort! do |a, b|
+      a[:type_array].sort! { |first, second| instance_types[second] <=> instance_types[first] }
+      b[:type_array].sort! { |first, second| instance_types[second] <=> instance_types[first] }
       [a[:type_array], a[:launch_time]].flatten <=> [b[:type_array], b[:launch_time]].flatten
     end
-    
+
     # do this at the end so we have the names sorted in order of usage
-    @ec2_data.each { |d| d[:type] = d[:type_array].join(", ") }
+    @instance_data.each { |d| d[:type] = d[:type_array].join(", ") }
   end
 
-  def load_instances
-    data = @table.dataSource.data
-    data.clear
+  def load_volumes
+    @volumes = {}
 
-    @ec2_data.each { |d| data << d }
-    @table.reload
+    ec2.describe_volumes['volumeSet']['item'].each do |volume|
+      data = {:id => volume['volumeId'],
+              :status => volume['status'],
+              :size => volume['size'],
+              :parent_snapshot => volume['snapshotId'],
+              :zone => volume['zone'],
+              :created_at => Time.parse(volume['createTime']).to_s}
+
+      data[:attachments] = []
+      data[:snapshots] = []
+
+      @volumes[data[:id]] = data
+
+      if volume.has_key?('attachmentSet') && !volume['attachmentSet'].nil? && volume['attachmentSet'].has_key?('item')
+        volume['attachmentSet']['item'].each do |attach|
+          attach_data = {:volume => data,
+                         :device => attach['device'],
+                         :instance => attach['instanceId'],
+                         :status => attach['status'],
+                         :time => Time.parse(attach['attachTime']).to_s,
+                         :del_on_term => attach['deleteOnTermination']}
+
+          @instances[attach_data[:instance]][:volumes] << attach_data
+        end
+      end
+    end
   end
 
-  def reload_instances
+  def load_snapshots
+    @snapshots = {}
+
+    ec2.describe_snapshots['snapshotSet']['item'].each do |snap|
+      data = {:id => snap['snapshotId'],
+              :volume => snap['volumeId'],
+              :status => snap['status'],
+              :start => Time.parse(snap['startTime']).to_s,
+              :progress => snap['progress']}
+
+      @snapshots[data[:id]] = data
+      @volumes[data[:volume]][:snapshots] << data if @volumes.has_key?(data[:volume])
+    end
+  end
+
+  def reload
     load_ec2_data
-    load_instances
   end
 
   def filter_instances(search)
@@ -198,7 +251,7 @@ class SilverLining
     data.clear
 
     query = ".*#{filter}.*"
-    @ec2_data.each do |instance|
+    @instance_data.each do |instance|
       if instance[:id] =~ /#{query}/i || instance[:type_array].join(" ") =~ /#{query}/i ||
           instance[:dns_private] =~ /#{query}/i || instance[:dns_public] =~ /#{query}/i
         data << instance
