@@ -96,16 +96,16 @@ class SilverLining
                                          400, 300]) do |win|
 
       win << label(:text => "Key", :layout => {:start => false})
-      win << @key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:key])
+      win << @key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => (@prefs[:key] || ""))
 
       win << label(:text => "Secret", :layout => {:start => false})
-      win << @secret_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:secret])
+      win << @secret_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => (@prefs[:secret] || ""))
 
       win << label(:text => "User", :layout => {:start => false})
-      win << @user_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:user])
+      win << @user_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => (@prefs[:user] || ""))
 
       win << label(:text => "SSH Key File", :layout => {:start => false})
-      win << @ssh_key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => @prefs[:ssh_key])
+      win << @ssh_key_field = text_field(:layout => {:start => false, :expand => [:width]}, :text => (@prefs[:ssh_key] || ""))
       
       win << layout_view(:mode => :horizontal, :size => [400, 100], :layout => {:expand => :width}) do |view|
         view << button(:title => "save", :layout => {:start => true}) { |button| button.on_action { endSheet(win, true) } }
@@ -180,7 +180,7 @@ class SilverLining
         @instance_data << data
       end
     end
-    
+
     @instance_data.sort! do |a, b|
       a[:type_array].sort! { |first, second| instance_types[second] <=> instance_types[first] }
       b[:type_array].sort! { |first, second| instance_types[second] <=> instance_types[first] }
