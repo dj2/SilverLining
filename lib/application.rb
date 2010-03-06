@@ -78,11 +78,11 @@ class SilverLining
                               :image => image(:named => "tools")).on_action { show_credentials_sheet(@window) }
 
     search_item = toolbar_item(:identifier => "Search") do |si|
-      search = search_field(:frame => [0, 0, 250, 30],
-                            :layout => {:align => :right, :start => false})
-      search.on_action { |sender| filter_instances(search) }
+      @search = search_field(:frame => [0, 0, 250, 30],
+                             :layout => {:align => :right, :start => false})
+      @search.on_action { |sender| filter_instances(@search) }
 
-      si.view = search
+      si.view = @search
     end
 
     toolbar(:default => [reload_item, prefs_item, :flexible_space, search_item])
@@ -263,6 +263,10 @@ class SilverLining
     end
 
     @outline.reload
+  end
+
+  def on_find(menu)
+    @window.makeFirstResponder(@search)
   end
 
   def ec2

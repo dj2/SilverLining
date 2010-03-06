@@ -14,6 +14,9 @@ module HotCocoa
         apple.separator
         apple.item :quit, :title => "Quit #{NSApp.name}", :key => "q"
       end
+      main.submenu :find do |find|
+        find.item :find, :key => 'f'
+      end
       main.submenu :edit do |edit|
         edit.item :copy, :key => 'c', :action => 'copy:'
         edit.item :paste, :key => 'v', :action => "paste:"
