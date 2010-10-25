@@ -139,7 +139,7 @@ class SilverLining
 
   def launch_terminal
     # launch command grabbed from elastic fox
-    `/usr/bin/osascript -e 'on run argv' -e 'tell app "System Events" to set termOn to (exists process "Terminal")' -e 'set cmd to "ssh -i " & item 1 of argv & " " & item 2 of argv' -e 'if (termOn) then' -e 'tell app "Terminal" to do script cmd' -e 'else' -e 'tell app "Terminal" to do script cmd in front window' -e 'end if' -e 'tell app "Terminal" to activate' -e 'end run' #{@prefs[:ssh_key]} #{@prefs[:user]}@#{@outline.dataSource.data[@outline.selectedRow][:dns_public]}`
+    `/usr/bin/osascript -e 'on run argv' -e 'tell app "System Events" to set termOn to (exists process "Terminal")' -e 'set cmd to "ssh -A -i " & item 1 of argv & " " & item 2 of argv' -e 'if (termOn) then' -e 'tell app "Terminal" to do script cmd' -e 'else' -e 'tell app "Terminal" to do script cmd in front window' -e 'end if' -e 'tell app "Terminal" to activate' -e 'end run' #{@prefs[:ssh_key]} #{@prefs[:user]}@#{@outline.dataSource.data[@outline.selectedRow][:dns_public]}`
   end
 
   def load_ec2_data
